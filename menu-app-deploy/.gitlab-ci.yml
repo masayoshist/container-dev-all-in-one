@@ -1,0 +1,30 @@
+variables:
+    ENVIROMENT:
+        value: "develop"
+        options:
+            - "develop"
+        description: "input deploy enviroment"
+    DEPLOY_IMAGE: 
+        value: "dev.sample.local:5050/root/menu-app:latest"
+        description: "Input deploy image"
+
+stages:
+    - edit
+    - deploy
+
+deploy-1:
+    stage: deploy
+    script:
+        - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+        - printenv
+        - echo $DEPLOY_IMAGE
+        - curl -L https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        - chmod 755 /usr/local/bin/docker-compose
+        - cd ${ENVIROMENT}
+        - docker-compose build --no-cache
+        - docker-compose up --force-recreate -d
+    rules:
+        - if: $CI_PIPELINE_SOURCE != "web"
+          when: never
+        - when: on_success
+

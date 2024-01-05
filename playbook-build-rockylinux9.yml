@@ -1,0 +1,115 @@
+# サンプル: プレイブック全体を localhost で実行する
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  become: yes
+
+  handlers:
+   - name: Reload Docker Service
+     systemd:
+       name: docker
+       state: restarted
+       daemon_reload: yes
+  
+  tasks:
+    # Install Docker
+    - name: dnf (dnf -y remove podman runc)
+      dnf:
+        name: podman, runc
+        state: absent
+    - name: get_url (curl https://download.docker.com/linux/centos/docker-ce.repo -o /etc/yum.repos.d/docker-ce.repo)
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        backup: yes
+    - name: lineinfile (sed -i -e "s/enabled=1/enabled=0/g" /etc/yum.repos.d/docker-ce.repo)
+      lineinfile:
+        path: /etc/yum.repos.d/docker-ce.repo
+        regexp: 'enabled=1'
+        line:   'enabled=0'
+    - name: dnf (dnf --enablerepo=docker-ce-stable -y install docker-ce)
+      dnf:
+        name: docker-ce
+        state: present
+        enablerepo: docker-ce-stable
+    - name: systemctl enable --now docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    # Install docker-compose
+    - name: curl -L https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        backup: yes
+    - name: chmod 755 /usr/local/bin/docker-compose
+      file:
+        path: /usr/local/bin/docker-compose
+        mode: 0755
+
+    # Prepare docker-compose build
+    - name: mkdir -p /opt/gitlab/
+      file:
+        path: /opt/gitlab/
+        state: directory
+    - name: mkdir -p /opt/portainer
+      file:
+        path: /opt/portainer
+        state: directory
+
+    # Prepare gitlab-runner on DockerHost
+    - name: sed -i '/ExecStart/s/$/ --insecure-registry dev.sample.local:5050/' /usr/lib/systemd/system/docker.service
+      lineinfile:
+        path: /usr/lib/systemd/system/docker.service
+        regexp: '^ExecStart='
+        line: 'ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --insecure-registry dev.sample.local:5050'
+      notify: Reload Docker Service
+    - name: sed -i '/127.0.0.1/s/$/ dev.sample.local/' /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: '127.0.0.1   dev.sample.local'
+    
+    # Install gitlab-runner on DockerHost
+    - name: curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | bash (1/2)
+      get_url:
+        url: https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh
+        dest: /script.rpm.sh
+    - name: curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | bash (2/2)
+      command:
+        cmd: bash /script.rpm.sh
+      changed_when: false
+    - name: dnf install -y gitlab-runner
+      dnf:
+        name: gitlab-runner
+
+    # Edit kernel parameters for SonarQube
+    - name: sysctl -w vm.max_map_count=524288 / sysctl -w fs.file-max=131072
+      sysctl:
+        name={{ item.param }}
+        value={{ item.value }}
+        state=present
+        reload=yes
+      with_items:
+        - { param: 'vm.max_map_count', value: '524288' }
+        - { param: 'fs.file-max', value: '131072' }
+
+    - name: ulimit -n 131072 / ulimit -u 8192
+      pam_limits:
+        domain=root
+        limit_type=hard
+        limit_item={{ item.limit_item }}
+        value={{ item.value }}
+      with_items:
+        - { limit_item: 'nofile', value: '131072'}
+        - { limit_item: 'nproc', value: '8192'}
+    - name: mkdir /opt/sonarqube/data /opt/sonarqube/logs /opt/sonarqube/extensions / chmod 777
+      file:
+        path={{ item }}
+        state=directory
+        mode=0777
+      with_items:
+        - /opt/sonarqube/data
+        - /opt/sonarqube/logs
+        - /opt/sonarqube/extensions

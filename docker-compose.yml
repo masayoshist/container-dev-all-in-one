@@ -1,0 +1,48 @@
+version: '3.6'
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:16.4.1-ce.0'
+    restart: always
+    hostname: 'dev.sample.local'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://dev.sample.local:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        nginx['listen_addresses'] = ['*']
+        registry_external_url 'http://dev.sample.local:5050'
+        registry_nginx['enable'] = true
+        registry_nginx['listen_port'] = 5050
+    ports:
+      - '8929:8929'
+      - '2224:22'
+      - '5050:5050'
+    volumes:
+      - '/opt/gitlab/config:/etc/gitlab'
+      - '/opt/gitlab/logs:/var/log/gitlab'
+      - '/opt/gitlab/data:/var/opt/gitlab'
+    shm_size: '256m'
+  portainer:
+    image: 'portainer/portainer-ce:linux-amd64'
+    restart: always
+    ports:
+      - '9000:9000'
+      - '8000:8000'
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - '/opt/portainer:/data'
+  sonarqube:
+    image: 'sonarqube:lts-community'
+    restart: always
+    ports:
+      - '9001:9000'
+    volumes:
+      - '/opt/sonarqube/data:/opt/sonarqube/data'
+      - '/opt/sonarqube/logs:/opt/sonarqube/logs'
+      - '/opt/sonarqube/extensions:/opt/sonarqube/extensions'
+  dood:
+    build:
+      context: .
+      dockerfile: Dockerfile-dood
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    command: sleep infinity

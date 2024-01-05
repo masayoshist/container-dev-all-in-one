@@ -1,0 +1,10 @@
+FROM rockylinux:9.2
+
+RUN dnf update -y && \
+    curl https://download.docker.com/linux/centos/docker-ce.repo -o /etc/yum.repos.d/docker-ce.repo && \
+    sed -i -e "s/enabled=1/enabled=0/g" /etc/yum.repos.d/docker-ce.repo && \
+    dnf --enablerepo=docker-ce-stable -y install docker-ce-cli && \
+    dnf -y install java-17-openjdk && \
+    rm -rf /var/cache/yum/* && \
+    yum clean all
+CMD ["/bin/bash"]

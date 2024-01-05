@@ -1,0 +1,56 @@
+include:
+    - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+stages:
+    - build-app
+    - analize-static
+    - build-image
+    - scan-image
+    - push-image
+    - view-summary
+    - test
+
+before_script:
+    - mkdir -p artifacts/
+
+.common-setting:
+    artifacts:
+        paths:
+            - artifacts/
+
+build-app-1:
+    stage: build-app
+    extends: .common-setting
+    script:
+        - chmod 755 gradlew
+        - ./gradlew clean build
+        - ./gradlew test
+        - cp build/libs/*SNAPSHOT.jar artifacts/app.jar
+ 
+build-image-1:
+    stage: build-image
+    extends: .common-setting
+    script:
+        - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+        - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} .
+        - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA}
+        - docker tag ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA} ${CI_REGISTRY_IMAGE}:latest
+        - docker rmi -f ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA}
+        - docker push ${CI_REGISTRY_IMAGE}:latest
+        - docker rmi ${CI_REGISTRY_IMAGE}:latest
+
+#scan-image-01:
+#    stage: scan-image
+#    extends: .common-setting
+#    script:
+#        - rpm -ivh https://github.com/aquasecurity/trivy/releases/download/v0.47.0/trivy_0.47.0_Linux-64bit.rpm
+#        - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+#        - trivy --offline-scan image ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA}
+#        - docker rmi -f ${CI_REGISTRY_IMAGE}:${CI_COMMIT_BRANCH}_${CI_COMMIT_SHA}
+
+view-summary-1:
+    stage: .post
+    script:
+        - ls -l artifacts/
+        - sleep 10
+        - find / -name gl-secret-detection-report.json
