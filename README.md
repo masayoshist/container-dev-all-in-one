@@ -1,7 +1,7 @@
 # container-dev-all-in-one
 
-## Install RockyLinux9.2
-Install Rocky-9.2-x86_64-minimal
+## Install RockyLinux10.2
+Install Rocky-10.2-x86_64-minimal
 
 ## OS Setup
 Copy & Paste via terminal-emulator , it is GOOD.
@@ -18,7 +18,7 @@ Copy & Paste via terminal-emulator , it is GOOD.
 ```
 # git clone https://github.com/masayoshist/container-dev-all-in-one.git
 # cd container-dev-all-in-one/
-# ansible-playbook playbook-build-rockylinux9.yml
+# ansible-playbook playbook-build-rockylinux10.yml
 ```
 
 ## Docker-Compose
@@ -77,12 +77,25 @@ This content is preparing.
 ### Create menu-app Project
 - Create blank project
 
+### Create PAT
+- upper right's user icon > Preferences > Access > Personal Access tokens > Add new token
+- Generate token, with checked...
+  - read_repository
+  - write_repository
+
+
 ### Push menu-app Sources
+GitAuth is...
+- Username: root
+- Password: GeneratedToken Strings
+
 ```
 # cd /root/
 # git clone http://dev.sample.local:8929/root/menu-app.git
 # cp -r container-dev-all-in-one/menu-app ./
 # cd menu-app
+# git config --global user.email "root@dev.sample.local"
+# git config --global user.name "root"
 # git add .
 # git commit -m "first commit"
 # git push origin main

@@ -1,7 +1,7 @@
 version: '3.6'
 services:
   gitlab:
-    image: 'gitlab/gitlab-ce:16.4.1-ce.0'
+    image: 'gitlab/gitlab-ce:18.10.8-ce.0'
     restart: always
     hostname: 'dev.sample.local'
     environment:

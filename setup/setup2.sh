@@ -5,5 +5,6 @@ dnf install git -y
 
 ### 
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+yum install python -y
 python get-pip.py --user
 pip install --user ansible
